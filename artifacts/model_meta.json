@@ -1,0 +1,26 @@
+{
+  "task": "ACSIncome",
+  "reference_cell": "CA_2014",
+  "n_train": 15000,
+  "n_calib": 5000,
+  "n_holdout": 5000,
+  "features": [
+    "AGEP",
+    "COW",
+    "SCHL",
+    "MAR",
+    "OCCP",
+    "POBP",
+    "RELP",
+    "WKHP",
+    "SEX",
+    "RAC1P"
+  ],
+  "model": "HistGradientBoostingClassifier",
+  "params": {
+    "random_state": 20260914
+  },
+  "reference_holdout_auc": 0.8991226508361575,
+  "model_sha256": "9d2e38bda39b17f17f6ddc64968c3796e474a25b8c8d090a393c18c9c6f2098d",
+  "seed": 20260914
+}

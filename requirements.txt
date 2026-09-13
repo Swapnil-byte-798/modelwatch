@@ -1,0 +1,11 @@
+# Pinned for macOS 12 / Python 3.9 (x86_64). scipy 1.18 on Python 3.14 stalls in
+# dlopen of scipy.stats._biasedurn on this platform, which is why the versions
+# below are explicit rather than floating.
+numpy==1.26.4
+scipy==1.13.1
+scikit-learn==1.5.2
+pandas==2.2.3
+pyarrow==17.0.0
+matplotlib==3.9.2
+folktables
+pytest
