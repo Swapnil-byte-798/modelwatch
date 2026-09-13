@@ -72,3 +72,33 @@ most excluded states. That change was considered and rejected *after* seeing
 which states failed, which is exactly when it becomes a garden-of-forking-paths
 decision. If the threshold is ever revisited, both the original and the revised
 corpus must be reported side by side.
+
+## Final corpus composition (2014 + 2018)
+
+104 (state, year) cells attempted, 90 materialised, 45 per year — symmetric
+across years, which matters: an exclusion that applied to one year but not the
+other would confound temporal comparisons with sample availability.
+
+Two distinct exclusion causes, kept separate rather than lumped as "missing":
+
+1. **Below the fixed-n floor** (6 states x 2 years = 12 cells): AK, DE, ND, SD,
+   VT, WY. Row counts after the folktables adult filter run 3,064-4,899 against
+   a required 5,000. These are the small-population states and the exclusion is
+   systematic, not random — the corpus therefore under-represents low-population
+   states, and any claim about "all states" would be false.
+2. **Loader failure** (DC, both years): `folktables` raises a bare
+   `AssertionError` reading the DC person file. Not a size problem — DC has
+   enough rows. Cause not investigated; it is one cell in each year and chasing
+   a third-party loader bug was not worth the corpus time.
+
+Net: 90 windows, of which 1 is the reference cell, leaving 89 deployment
+windows — against the ~250 anticipated in the pre-registration, which assumed
+five survey years. Years 2015-2017 were not downloaded: measured throughput was
+about 2 minutes per cell and the machine was heavily loaded, so the corpus was
+capped at the two years giving maximum temporal separation (2014 vs 2018) plus
+full spatial coverage. The code takes years as arguments (`python -m
+modelwatch.data 2015 2016 2017`) and the corpus extends without modification.
+
+**Consequence to report, not hide:** 89 windows gives materially wider
+confidence intervals than 250 would. Detectors separated by a few points of
+PR-AUC cannot be honestly ranked against each other at this N.

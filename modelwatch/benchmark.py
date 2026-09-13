@@ -79,6 +79,16 @@ def score_binary(alert: np.ndarray, harmful: np.ndarray) -> dict:
 
 def run(calibrated_psi: float | None = None) -> dict:
     df = pd.read_parquet(CORPUS_PATH)
+
+    # Use the empirically calibrated threshold from the A/A harness when it
+    # exists. The folklore 0.2 is a credit-scoring rule of thumb whose validity
+    # depends on sample size and feature count; the A/A null measures what the
+    # threshold should be for THIS corpus.
+    if calibrated_psi is None:
+        aa_path = C.ARTIFACT_DIR / "aa_summary.json"
+        if aa_path.exists():
+            calibrated_psi = json.loads(
+                aa_path.read_text())["calibrated_thresholds"]["psi_max_q99"]
     harmful = df["harmful"].to_numpy().astype(bool)
     base_rate = float(harmful.mean())
 

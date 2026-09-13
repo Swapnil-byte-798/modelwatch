@@ -1,0 +1,21 @@
+{
+  "cell": "CA_2014",
+  "pairs": 500,
+  "n_per_side": 5000,
+  "false_alarm_rate": {
+    "v0_naive": 1.0,
+    "bh_corrected": 0.018,
+    "psi_max_over_folklore": 1.0,
+    "any_p_below_alpha": 0.298
+  },
+  "calibrated_thresholds": {
+    "psi_max_q99": 0.34480623964414303,
+    "psi_per_feature_q99": 0.3198272874898498,
+    "ks_max_d_q99": 0.031003999999999997,
+    "score_psi_q99": 0.009623158731076413
+  },
+  "null_summary": {
+    "psi_max_median": 0.2919154139322233,
+    "psi_max_max": 0.3671609910965158
+  }
+}

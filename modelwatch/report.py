@@ -22,6 +22,28 @@ def _load(name):
     return json.loads(p.read_text()) if p.exists() else None
 
 
+def _drift_magnitude():
+    """Real drift magnitude against the no-drift null -- the headline comparison."""
+    import pandas as _pd
+    try:
+        d = _pd.read_parquet(C.ARTIFACT_DIR / "corpus.parquet")
+        aa = _pd.read_parquet(C.ARTIFACT_DIR / "aa_null.parquet")
+    except FileNotFoundError:
+        return None
+    q99 = float(aa["psi_max"].quantile(0.99))
+    return {
+        "null_median": float(aa["psi_max"].median()),
+        "null_q99": q99,
+        "null_max": float(aa["psi_max"].max()),
+        "real_min": float(d["psi_max"].min()),
+        "real_median": float(d["psi_max"].median()),
+        "below_null_q99": int((d["psi_max"] <= q99).sum()),
+        "n": int(len(d)),
+        "harmful_median": float(d.loc[d["harmful"], "psi_max"].median()),
+        "benign_median": float(d.loc[~d["harmful"], "psi_max"].median()),
+    }
+
+
 def generate() -> str:
     meta = _load("model_meta.json")
     bench = _load("benchmark.json")
@@ -74,16 +96,56 @@ def generate() -> str:
           f"**{quad['alarm_no_harm']} windows fired with nothing wrong**; "
           f"**{quad['silent_failure']} degraded windows never fired at all.**")
         A("")
+    dm = _drift_magnitude()
+    if dm:
+        A("## Why the standard monitor cannot work here")
+        A("")
+        A("Two independent failures, both measured rather than argued.")
+        A("")
+        A(f"**1. The folklore threshold is below the noise floor.** On A/A splits "
+          f"drawn from a single cell — no drift, by construction — the median "
+          f"max-PSI is **{dm['null_median']:.3f}**, already above the "
+          f"`PSI > {C.FOLKLORE_PSI_THRESHOLD}` rule of thumb. It fires on "
+          f"**{fa:.0f}%** of samples where nothing happened. PSI scales with "
+          f"sample size and bin count; 0.2 is a credit-scoring heuristic, not a "
+          f"constant.")
+        A("")
+        A(f"**2. Calibrating the threshold does not rescue it.** Real drift is far "
+          f"above the null: the *smallest* max-PSI across {dm['n']} windows is "
+          f"**{dm['real_min']:.2f}** against a no-drift 99th percentile of "
+          f"**{dm['null_q99']:.3f}** — **{dm['below_null_q99']} of {dm['n']}** "
+          f"windows fall below it. Every threshold that admits any real window "
+          f"admits all of them.")
+        A("")
+        A(f"The reason is visible in one comparison: max-PSI is "
+          f"**{dm['harmful_median']:.2f}** on windows where the model materially "
+          f"degraded and **{dm['benign_median']:.2f}** where it did not. "
+          f"**Drift is ubiquitous; harm is not.** A detector that measures how "
+          f"much the inputs moved is answering a different question from the one "
+          f"the pager is asking.")
+        A("")
     A("## Detector leaderboard")
     A("")
-    A("Scored as binary classifiers against realised degradation. PR-AUC, not "
-      "ROC-AUC: harmful windows are the minority class, and ROC-AUC flatters a "
-      "detector that a pager would not tolerate.")
+    A(f"Scored as binary classifiers against realised degradation. **A detector "
+      f"that fires at random scores PR-AUC = the base rate = "
+      f"{base_pct/100:.3f}**, so that is the line to beat, not 0.5. PR-AUC "
+      f"rather than ROC-AUC because the question is what an alert is worth, not "
+      f"how well the statistic ranks overall.")
     A("")
-    A("| detector | PR-AUC | Spearman vs ΔAUC |")
-    A("|---|---|---|")
+    A("| detector | PR-AUC | lift over base rate | Spearman vs ΔAUC | p |")
+    A("|---|---|---|---|---|")
     for r in lb.to_dict("records"):
-        A(f"| `{r['detector']}` | {r['pr_auc']:.3f} | {r['spearman_vs_delta_auc']:+.3f} |")
+        lift = r["pr_auc"] - base_pct / 100
+        sig = "" if r["spearman_p"] < 0.05 else " *(n.s.)*"
+        A(f"| `{r['detector']}` | {r['pr_auc']:.3f} | {lift:+.3f} | "
+          f"{r['spearman_vs_delta_auc']:+.3f}{sig} | {r['spearman_p']:.1e} |")
+    A("")
+    A("Only `cbpe_predicted_drop` clears the base rate by a wide margin. Several "
+      "marginal detectors show no statistically significant rank correlation "
+      "with realised degradation at all — marked *(n.s.)*. Note also that "
+      "`psi_max` and `psi_max_categorical` are identical to three decimals: "
+      "max-PSI is entirely determined by the high-cardinality categorical "
+      "columns (OCCP, POBP), and the numeric-only variant is not significant.")
     A("")
     A("## Alerting policies")
     A("")
