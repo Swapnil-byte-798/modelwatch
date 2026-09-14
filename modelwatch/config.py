@@ -47,9 +47,12 @@ BOOTSTRAP_CI = 0.95
 
 # --- Detectors --------------------------------------------------------------
 PSI_BINS = 10
-PSI_EPSILON = 1e-6                      # guards empty reference bins; PSI is
-                                        # unbounded without it, which is itself
-                                        # a documented pathology (see README)
+# The PSI smoothing floor now defaults to the sample's own resolution
+# (detectors.resolution_eps = 0.5/n) rather than a fixed constant. The value
+# below is retained ONLY to reproduce the epsilon sweep that showed the original
+# headline result was an artifact of it -- see DEAD_ENDS.md. Do not use it as a
+# default; at n=5,000 it is 200x below the sample resolution.
+PSI_EPS_ARTIFACT = 1e-6
 FOLKLORE_PSI_THRESHOLD = 0.2            # the credit-scoring rule of thumb we test
 FOLKLORE_ALPHA = 0.05
 DOMAIN_CLF_FOLDS = 5

@@ -69,8 +69,10 @@ Measured, not asserted.
 - **False alarms.** On A/A splits where no drift exists by construction, the
   folklore monitor (PSI > {psi_thr}, or any p < {alpha}) fires on
   **{fa_naive_pct:.1f}%** of windows.
-- **Silent failures.** At that operating point the monitor misses
-  **{silent_pct:.1f}%** of all windows that were materially degraded.
+- **Silent failures.** At that operating point the monitor stays quiet on
+  **{silent_pct:.1f}%** of all windows while the model was degraded — a miss
+  rate of **{miss_pct:.1f}%** among the windows that were materially degraded.
+  (The first denominator is every window; the second is only the harmful ones.)
 - **Concept drift.** The marginal tests (PSI, KS, chi-square) examine feature
   marginals only. A change in P(y|X) with the feature distribution unchanged is
   invisible to them by construction — this is a property of the statistics, not
@@ -134,6 +136,7 @@ def generate() -> str:
         psi_thr=C.FOLKLORE_PSI_THRESHOLD, alpha=C.FOLKLORE_ALPHA,
         fa_naive_pct=fa_naive,
         silent_pct=naive["silent_failure_rate"] * 100,
+        miss_pct=(1 - naive["recall"]) * 100 if naive["recall"] == naive["recall"] else float("nan"),
         harm_delta=abs(C.HARM_DELTA_AUC),
     )
     CARD_PATH.write_text(text)

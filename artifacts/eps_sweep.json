@@ -1,0 +1,43 @@
+{
+  "pairs": 200,
+  "n_per_side": 5000,
+  "sample_resolution_1_over_n": 0.0002,
+  "rows": [
+    {
+      "eps": "1e-06",
+      "eps_value": 1e-06,
+      "psi_max_median": 0.29277172386893324,
+      "psi_max_q99": 0.34226773232022395,
+      "frac_over_folklore_0.2": 1.0
+    },
+    {
+      "eps": "1e-05",
+      "eps_value": 1e-05,
+      "psi_max_median": 0.2259441847571237,
+      "psi_max_q99": 0.2623479968101787,
+      "frac_over_folklore_0.2": 0.985
+    },
+    {
+      "eps": "1e-04",
+      "eps_value": 0.0001,
+      "psi_max_median": 0.15646791383211717,
+      "psi_max_q99": 0.18121930745313913,
+      "frac_over_folklore_0.2": 0.0
+    },
+    {
+      "eps": "resolution (0.5/n)",
+      "eps_value": 0.0001,
+      "psi_max_median": 0.15646791383211717,
+      "psi_max_q99": 0.18121930745313913,
+      "frac_over_folklore_0.2": 0.0
+    },
+    {
+      "eps": "1e-03",
+      "eps_value": 0.001,
+      "psi_max_median": 0.07232516051724869,
+      "psi_max_q99": 0.08923281959016523,
+      "frac_over_folklore_0.2": 0.0
+    }
+  ],
+  "interpretation": "The no-drift floor of max-PSI is a function of the smoothing constant. Any eps far below the sample resolution 1/n inflates it by charging a large penalty for categories that are absent purely by chance. The project's original headline used eps=1e-6 and was an artifact of this; the default is now 0.5/n."
+}

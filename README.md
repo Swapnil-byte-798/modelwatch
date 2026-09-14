@@ -1,5 +1,32 @@
 # ModelWatch
 
+> ### ⚠️ Correction in progress — do not cite the numbers below
+>
+> An adversarial QA pass found that this README's first headline claim was
+> **wrong**. It reported that `PSI > 0.2` sits below the no-drift noise floor and
+> fires on 100% of samples where nothing happened, and attributed that to
+> "sample size and bin count". The real cause was the PSI smoothing constant:
+> `PSI_EPSILON = 1e-6` was 200x below the sample resolution `1/n`, so categories
+> absent from one sample by pure chance supplied the **majority** of the
+> statistic (measured: 56% for OCCP, 58% for POBP).
+>
+> With a defensible floor of `0.5/n` the no-drift median max-PSI is **0.157**,
+> *below* the 0.2 threshold, and the false-alarm rate is **0%**, not 100%.
+> The sweep showing exactly where the conclusion flips is in `DEAD_ENDS.md`
+> and `modelwatch/eps_sweep.py`.
+>
+> **What survives:** the second failure mode ("drift is ubiquitous, harm is
+> not") and the detector leaderboard are unaffected — real-window PSI is driven
+> by POBP, where only ~5% of the value was epsilon-derived.
+>
+> The corpus has also been extended from 89 to 225 windows (all five
+> pre-registered survey years), and the bootstrap seeding was rebuilt. Every
+> number below is from the superseded 89-window run and is being regenerated.
+>
+> Five further defects were found and fixed; all are documented in
+> `DEAD_ENDS.md`, including one introduced by the fix for another.
+
+
 **When a drift monitor fires, what is the probability that the model has actually degraded?**
 
 Portfolio drift projects detect drift their own author injected. That measures nothing: the effect size was chosen by the author, so detection is guaranteed and there is no negative class. This project measures the *decision quality of the monitor itself*, against real distribution shift on US Census data, with ground truth the detectors never see.

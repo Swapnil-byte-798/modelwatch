@@ -33,10 +33,32 @@ SPLIT_PATH = C.ARTIFACT_DIR / "reference_splits.parquet"
 
 
 def _sha256(path) -> str:
+    """Digest of the serialised file. Environment-dependent -- see _model_sha256."""
     h = hashlib.sha256()
     with open(path, "rb") as fh:
         for chunk in iter(lambda: fh.read(65536), b""):
             h.update(chunk)
+    return h.hexdigest()
+
+
+def _model_sha256(clf) -> str:
+    """Digest over the FITTED STRUCTURE, not the pickle container.
+
+    joblib serialises `_BinMapper(n_threads=_openmp_effective_n_threads())`, so
+    the file digest changes with the machine's core count even when the model is
+    bit-identical -- a single-core CI runner produces a different "pin" for the
+    same model. Verified: across OMP_NUM_THREADS of 1/2/4 the predictor nodes,
+    bin thresholds and baseline prediction are bit-equal while the file hash is
+    not. Hash the parameters that define the model's predictions instead.
+    """
+    h = hashlib.sha256()
+    for stage in clf._predictors:
+        for predictor in stage:
+            h.update(predictor.nodes.tobytes())
+    for thresholds in clf._bin_mapper.bin_thresholds_:
+        h.update(np.asarray(thresholds).tobytes())
+    h.update(clf._bin_mapper.n_bins_non_missing_.tobytes())
+    h.update(np.asarray(clf._baseline_prediction).tobytes())
     return h.hexdigest()
 
 
@@ -85,7 +107,8 @@ def train() -> dict:
         "model": "HistGradientBoostingClassifier",
         "params": {"random_state": C.SEED},
         "reference_holdout_auc": holdout_auc,
-        "model_sha256": _sha256(MODEL_PATH),
+        "model_sha256": _model_sha256(clf),       # reproducible across machines
+        "file_sha256": _sha256(MODEL_PATH),       # environment-dependent, informational
         "seed": C.SEED,
     }
     META_PATH.write_text(json.dumps(meta, indent=2))

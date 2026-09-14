@@ -97,32 +97,56 @@ def generate() -> str:
           f"**{quad['silent_failure']} degraded windows never fired at all.**")
         A("")
     dm = _drift_magnitude()
+    eps_rows = None
+    eps_path = C.ARTIFACT_DIR / "eps_sweep.json"
+    if eps_path.exists():
+        eps_rows = json.loads(eps_path.read_text())["rows"]
+
     if dm:
-        A("## Why the standard monitor cannot work here")
+        fires = dm["null_median"] > C.FOLKLORE_PSI_THRESHOLD
+        A("## Where the standard monitor actually fails")
         A("")
-        A("Two independent failures, both measured rather than argued.")
+        A("**1. Not where this project first claimed.** An earlier version of "
+          "this README reported that `PSI > 0.2` sits below the no-drift noise "
+          "floor and fires on 100% of samples where nothing happened. That was "
+          "an artifact of the PSI smoothing constant, not a property of the "
+          "threshold. The measured no-drift median max-PSI is "
+          f"**{dm['null_median']:.3f}**, which is "
+          f"{'above' if fires else 'below'} the 0.2 rule of thumb, and the A/A "
+          f"false-alarm rate of the combined folklore policy is **{fa:.1f}%** — "
+          "driven by the KS/chi-square p-value arm, not by PSI.")
         A("")
-        A(f"**1. The folklore threshold is below the noise floor.** On A/A splits "
-          f"drawn from a single cell — no drift, by construction — the median "
-          f"max-PSI is **{dm['null_median']:.3f}**, already above the "
-          f"`PSI > {C.FOLKLORE_PSI_THRESHOLD}` rule of thumb. It fires on "
-          f"**{fa:.0f}%** of samples where nothing happened. PSI scales with "
-          f"sample size and bin count; 0.2 is a credit-scoring heuristic, not a "
-          f"constant.")
+        if eps_rows:
+            A("The correction is measured rather than asserted. PSI needs a floor "
+              "for categories absent from one sample; a floor far below the "
+              "sample resolution `1/n` charges a large penalty for categories "
+              "missing by pure chance, and ACS occupation codes have ~465 levels "
+              "at n=5,000. Sweeping it over the same A/A splits:")
+            A("")
+            A("| smoothing floor | no-drift median max-PSI | fires at 0.2 |")
+            A("|---|---|---|")
+            for r in eps_rows:
+                mark = " ← original" if r["eps"] == "1e-06" else (
+                    " ← **current default**" if r["eps"].startswith("resolution") else "")
+                A(f"| `{r['eps']}`{mark} | {r['psi_max_median']:.3f} | "
+                  f"{r['frac_over_folklore_0.2']*100:.1f}% |")
+            A("")
+            A("The conclusion flips between `1e-5` and `1e-4`. The default is now "
+              "`0.5/n` — half a count, the smallest quantity the sample could "
+              "have resolved. See `DEAD_ENDS.md`.")
+            A("")
+        A(f"**2. Drift is ubiquitous; harm is not.** This is the failure that "
+          f"survives. Real drift sits far above the null: the *smallest* max-PSI "
+          f"across {dm['n']} windows is **{dm['real_min']:.2f}** against a "
+          f"no-drift 99th percentile of **{dm['null_q99']:.3f}** — "
+          f"**{dm['below_null_q99']} of {dm['n']}** windows fall below it. Every "
+          f"threshold that admits one real window admits all of them.")
         A("")
-        A(f"**2. Calibrating the threshold does not rescue it.** Real drift is far "
-          f"above the null: the *smallest* max-PSI across {dm['n']} windows is "
-          f"**{dm['real_min']:.2f}** against a no-drift 99th percentile of "
-          f"**{dm['null_q99']:.3f}** — **{dm['below_null_q99']} of {dm['n']}** "
-          f"windows fall below it. Every threshold that admits any real window "
-          f"admits all of them.")
-        A("")
-        A(f"The reason is visible in one comparison: max-PSI is "
-          f"**{dm['harmful_median']:.2f}** on windows where the model materially "
-          f"degraded and **{dm['benign_median']:.2f}** where it did not. "
-          f"**Drift is ubiquitous; harm is not.** A detector that measures how "
-          f"much the inputs moved is answering a different question from the one "
-          f"the pager is asking.")
+        A(f"And the separation the monitor would need simply is not there: "
+          f"max-PSI is **{dm['harmful_median']:.2f}** on windows where the model "
+          f"materially degraded and **{dm['benign_median']:.2f}** where it did "
+          f"not. A detector that measures how much the inputs moved is answering "
+          f"a different question from the one the pager is asking.")
         A("")
     A("## Detector leaderboard")
     A("")

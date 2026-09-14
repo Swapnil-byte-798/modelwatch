@@ -109,7 +109,24 @@ def main(argv: list[str]) -> int:
             print(f"{flag} {state} {year} {res['status']} rows={res['rows']}", flush=True)
             if res["status"] == "error":
                 print(f"    {res.get('detail','')}", flush=True)
-    pd.DataFrame(rows).to_csv(log, index=False)
+    # Additive, not destructive: build_log.csv is the only tracked record of the
+    # raw row count each 5,000-row subsample was drawn from, and the subsample is
+    # a function of `available`. A run over one year must not erase another's
+    # provenance, and a cached cell (whose early return cannot know `available`
+    # without re-downloading) must not overwrite a known value with NaN.
+    new_rows = pd.DataFrame(rows)
+    if log.exists():
+        old_rows = pd.read_csv(log)
+        if "available" in old_rows.columns:
+            prev = old_rows.set_index(["state", "year"])["available"]
+            keys = pd.MultiIndex.from_frame(new_rows[["state", "year"]])
+            carried = pd.Series(prev.reindex(keys).to_numpy(), index=new_rows.index)
+            if "available" not in new_rows.columns:
+                new_rows["available"] = pd.NA
+            new_rows["available"] = new_rows["available"].fillna(carried)
+        new_rows = (pd.concat([old_rows, new_rows], ignore_index=True)
+                      .drop_duplicates(subset=["state", "year"], keep="last"))
+    new_rows.sort_values(["year", "state"]).to_csv(log, index=False)
     ok = sum(1 for r in rows if r["status"] in ("ok", "cached"))
     print(f"\ncells materialised: {ok}/{len(rows)}  -> {C.WINDOWS_DIR}")
     return 0

@@ -20,16 +20,42 @@ from . import config as C
 # These test feature marginals only. They cannot see a change in P(y|X); that
 # limitation is measured rather than asserted (see benchmark.py).
 
+
+def resolution_eps(n_ref: int, n_cur: int) -> float:
+    """Smoothing floor tied to the sample's own resolution: half a count.
+
+    PSI needs a floor because a category present in one sample and absent from
+    the other gives log(0). The floor must scale with n, and this is not a
+    detail -- it decides the answer.
+
+    A fixed constant far below 1/n turns every zero-count category into a large
+    spurious term: the contribution is about (1/n) * ln(1 / (n * eps)), which
+    diverges as eps -> 0. On ACS OCCP (~430 levels at n=5,000) there are dozens
+    of zero-count cells by pure sampling, and at eps=1e-6 they supply the
+    MAJORITY of the PSI value -- measured at 56% for OCCP, 58% for POBP. The
+    original version of this project used 1e-6 and reported a no-drift median
+    max-PSI of 0.292; more than half of that was this constant. See DEAD_ENDS.md.
+
+    Half a count is the conventional Jeffreys-style floor: it is the smallest
+    quantity the sample could have resolved, so it never invents mass the data
+    could not have observed, and it never exceeds a genuine single observation.
+    """
+    return 0.5 / max(min(int(n_ref), int(n_cur)), 1)
+
 def psi_numeric(ref: np.ndarray, cur: np.ndarray, bins: int = C.PSI_BINS,
-                eps: float = C.PSI_EPSILON) -> float:
+                eps: float | None = None) -> float:
     """Population Stability Index over quantile bins fitted on the reference.
 
-    Two documented pathologies, both left in deliberately:
-      * PSI is unbounded when a reference bin is empty in the current window;
-        `eps` caps it, so the value depends on eps.
-      * Quantile binning collapses on point masses (WKHP has a large spike at
-        40), so effective bin count can be below `bins`.
+    `eps` defaults to the sample resolution (see resolution_eps); pass an
+    explicit value only to reproduce the epsilon sweep in DEAD_ENDS.md.
+
+    One pathology left in deliberately: quantile binning collapses on point
+    masses (WKHP has a large spike at 40), so the effective bin count can be
+    below `bins`. Note that at 10 bins and n=5,000 the floor never binds here --
+    it is the categorical path where eps decides the answer.
     """
+    if eps is None:
+        eps = resolution_eps(len(ref), len(cur))
     edges = np.unique(np.quantile(ref, np.linspace(0, 1, bins + 1)))
     if edges.size < 3:
         return 0.0
@@ -43,8 +69,16 @@ def psi_numeric(ref: np.ndarray, cur: np.ndarray, bins: int = C.PSI_BINS,
 
 
 def psi_categorical(ref: np.ndarray, cur: np.ndarray,
-                    eps: float = C.PSI_EPSILON) -> float:
-    """PSI over category frequencies (no binning)."""
+                    eps: float | None = None) -> float:
+    """PSI over category frequencies (no binning).
+
+    This is where the smoothing floor matters. OCCP and POBP carry hundreds of
+    levels, so at n=5,000 many categories are absent from one side by chance
+    alone; with a floor below 1/n those empty cells dominate the statistic.
+    `eps` defaults to the sample resolution.
+    """
+    if eps is None:
+        eps = resolution_eps(len(ref), len(cur))
     cats = np.union1d(np.unique(ref), np.unique(cur))
     r = np.array([(ref == k).sum() for k in cats], dtype=float)
     c = np.array([(cur == k).sum() for k in cats], dtype=float)
