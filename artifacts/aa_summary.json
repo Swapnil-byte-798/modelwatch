@@ -3,19 +3,19 @@
   "pairs": 500,
   "n_per_side": 5000,
   "false_alarm_rate": {
-    "v0_naive": 1.0,
+    "v0_naive": 0.298,
     "bh_corrected": 0.018,
-    "psi_max_over_folklore": 1.0,
+    "psi_max_over_folklore": 0.0,
     "any_p_below_alpha": 0.298
   },
   "calibrated_thresholds": {
-    "psi_max_q99": 0.34480623964414303,
-    "psi_per_feature_q99": 0.3198272874898498,
+    "psi_max_q99": 0.18257299452126402,
+    "psi_per_feature_q99": 0.1702386052387757,
     "ks_max_d_q99": 0.031003999999999997,
     "score_psi_q99": 0.009623158731076413
   },
   "null_summary": {
-    "psi_max_median": 0.2919154139322233,
-    "psi_max_max": 0.3671609910965158
+    "psi_max_median": 0.15660986186627351,
+    "psi_max_max": 0.19934576178801147
   }
 }

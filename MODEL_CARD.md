@@ -3,7 +3,7 @@
 *Generated from measured results by `python -m modelwatch.model_card`. Do not
 edit by hand; edit the run and regenerate.*
 
-Generated: 2026-09-13 22:22 UTC
+Generated: 2026-09-14 11:15 UTC
 
 ## Model details
 
@@ -29,7 +29,7 @@ for, any decision about a person's income, credit, eligibility or employment.
 - Source: US Census ACS PUMS 1-Year person files via `folktables`
 - Survey years: 2014, 2015, 2016, 2017, 2018
 - Reference cell: CA_2014
-- Deployment windows: 89 (state, year) cells, each subsampled to
+- Deployment windows: 224 (state, year) cells, each subsampled to
   exactly 5,000 rows
 
 ## Evaluation results
@@ -37,9 +37,9 @@ for, any decision about a person's income, credit, eligibility or employment.
 | Metric | Value | How obtained |
 |---|---|---|
 | Reference holdout AUC | 0.8991 | realised, with labels |
-| Mean ΔAUC across windows | -0.0282 | realised, with labels |
-| Materially degraded windows | 69.7% (62/89) | realised, with labels |
-| CBPE mean absolute error | 0.0150 AUC | label-free estimate vs realised |
+| Mean ΔAUC across windows | -0.0272 | realised, with labels |
+| Materially degraded windows | 68.3% (153/224) | realised, with labels |
+| CBPE mean absolute error | 0.0149 AUC | label-free estimate vs realised |
 
 ## What this monitor cannot detect
 
@@ -47,9 +47,11 @@ Measured, not asserted.
 
 - **False alarms.** On A/A splits where no drift exists by construction, the
   folklore monitor (PSI > 0.2, or any p < 0.05) fires on
-  **100.0%** of windows.
-- **Silent failures.** At that operating point the monitor misses
-  **0.0%** of all windows that were materially degraded.
+  **29.8%** of windows.
+- **Silent failures.** At that operating point the monitor stays quiet on
+  **0.0%** of all windows while the model was degraded — a miss
+  rate of **0.0%** among the windows that were materially degraded.
+  (The first denominator is every window; the second is only the harmful ones.)
 - **Concept drift.** The marginal tests (PSI, KS, chi-square) examine feature
   marginals only. A change in P(y|X) with the feature distribution unchanged is
   invisible to them by construction — this is a property of the statistics, not

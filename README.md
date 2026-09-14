@@ -1,74 +1,59 @@
 # ModelWatch
 
-> ### ⚠️ Correction in progress — do not cite the numbers below
->
-> An adversarial QA pass found that this README's first headline claim was
-> **wrong**. It reported that `PSI > 0.2` sits below the no-drift noise floor and
-> fires on 100% of samples where nothing happened, and attributed that to
-> "sample size and bin count". The real cause was the PSI smoothing constant:
-> `PSI_EPSILON = 1e-6` was 200x below the sample resolution `1/n`, so categories
-> absent from one sample by pure chance supplied the **majority** of the
-> statistic (measured: 56% for OCCP, 58% for POBP).
->
-> With a defensible floor of `0.5/n` the no-drift median max-PSI is **0.157**,
-> *below* the 0.2 threshold, and the false-alarm rate is **0%**, not 100%.
-> The sweep showing exactly where the conclusion flips is in `DEAD_ENDS.md`
-> and `modelwatch/eps_sweep.py`.
->
-> **What survives:** the second failure mode ("drift is ubiquitous, harm is
-> not") and the detector leaderboard are unaffected — real-window PSI is driven
-> by POBP, where only ~5% of the value was epsilon-derived.
->
-> The corpus has also been extended from 89 to 225 windows (all five
-> pre-registered survey years), and the bootstrap seeding was rebuilt. Every
-> number below is from the superseded 89-window run and is being regenerated.
->
-> Five further defects were found and fixed; all are documented in
-> `DEAD_ENDS.md`, including one introduced by the fix for another.
-
-
 **When a drift monitor fires, what is the probability that the model has actually degraded?**
 
 Portfolio drift projects detect drift their own author injected. That measures nothing: the effect size was chosen by the author, so detection is guaranteed and there is no negative class. This project measures the *decision quality of the monitor itself*, against real distribution shift on US Census data, with ground truth the detectors never see.
 
 ## Results
 
-- **89 real deployment windows** — one per (state, year) ACS cell, each fixed at 5,000 rows
-- **69.7% materially degraded** (95% CI 59.5–78.2%) — the base rate everything divides by
-- **70% alert precision** for the standard PSI > 0.2 / p < 0.05 monitor (fires on 100% of windows)
-- **100.0% false-alarm rate** on A/A splits where no drift exists by construction
+- **224 real deployment windows** — one per (state, year) ACS cell, each fixed at 5,000 rows
+- **68.3% materially degraded** (95% CI 61.9–74.0%) — the base rate everything divides by
+- **69% alert precision** for the standard PSI > 0.2 / p < 0.05 monitor — which is just the base rate restated, because it fires on 99.6% of windows (1 true negative out of 224)
+- **29.8% false-alarm rate** on A/A splits where no drift exists by construction
 - **0% silent failures** — degraded windows the monitor never flagged
 - **CBPE mean absolute error 0.015 AUC** estimating performance with no labels at all
 
 ![what the standard drift monitor is worth](report/quadrants.png)
 
-Each point is a real deployment. The monitor sees only the x axis. **27 windows fired with nothing wrong**; **0 degraded windows never fired at all.**
+Each point is a real deployment. The monitor sees only the x axis. **68 windows fired with nothing wrong**; **0 degraded windows never fired at all.**
 
-## Why the standard monitor cannot work here
+## Where the standard monitor actually fails
 
-Two independent failures, both measured rather than argued.
+**1. Not where this project first claimed.** An earlier version of this README reported that `PSI > 0.2` sits below the no-drift noise floor and fires on 100% of samples where nothing happened. That was an artifact of the PSI smoothing constant, not a property of the threshold. The measured no-drift median max-PSI is **0.157**, which is below the 0.2 rule of thumb, and the A/A false-alarm rate of the combined folklore policy is **29.8%** — driven by the KS/chi-square p-value arm, not by PSI.
 
-**1. The folklore threshold is below the noise floor.** On A/A splits drawn from a single cell — no drift, by construction — the median max-PSI is **0.292**, already above the `PSI > 0.2` rule of thumb. It fires on **100%** of samples where nothing happened. PSI scales with sample size and bin count; 0.2 is a credit-scoring heuristic, not a constant.
+The correction is measured rather than asserted. PSI needs a floor for categories absent from one sample; a floor far below the sample resolution `1/n` charges a large penalty for categories missing by pure chance, and ACS occupation codes have ~465 levels at n=5,000. Sweeping it over the same A/A splits:
 
-**2. Calibrating the threshold does not rescue it.** Real drift is far above the null: the *smallest* max-PSI across 89 windows is **1.24** against a no-drift 99th percentile of **0.345** — **0 of 89** windows fall below it. Every threshold that admits any real window admits all of them.
+| smoothing floor | no-drift median max-PSI | fires at 0.2 |
+|---|---|---|
+| `1e-06` ← original | 0.293 | 100.0% |
+| `1e-05` | 0.226 | 98.5% |
+| `1e-04` | 0.156 | 0.0% |
+| `resolution (0.5/n)` ← **current default** | 0.156 | 0.0% |
+| `1e-03` | 0.072 | 0.0% |
 
-The reason is visible in one comparison: max-PSI is **5.76** on windows where the model materially degraded and **4.84** where it did not. **Drift is ubiquitous; harm is not.** A detector that measures how much the inputs moved is answering a different question from the one the pager is asking.
+The conclusion flips between `1e-5` and `1e-4`. The default is now `0.5/n` — half a count, the smallest quantity the sample could have resolved. See `DEAD_ENDS.md`.
+
+**2. Drift is ubiquitous; harm is not.** This is the failure that survives. Real drift sits far above the null — median max-PSI **5.16** against a no-drift 99th percentile of **0.183**, and only **3 of 224** windows fall below that percentile. So a threshold strict enough to suppress the no-drift null still admits almost every real window.
+
+And the separation the monitor would need simply is not there: max-PSI is **5.51** on windows where the model materially degraded and **4.75** where it did not. A detector that measures how much the inputs moved is answering a different question from the one the pager is asking.
+
+**3. The degradation is spatial, not temporal.** Windows that hold the state fixed and move only through time (4 of them, California 2015-2018) show **0%** material degradation — realised ΔAUC between +0.003 and −0.003. Windows that change state degrade at **66%**. For this model and this task, "harm" is distance from California, not elapsed time. A monitor tuned on calendar drift would have found nothing to alarm about in four years of data.
 
 ## Detector leaderboard
 
-Scored as binary classifiers against realised degradation. **A detector that fires at random scores PR-AUC = the base rate = 0.697**, so that is the line to beat, not 0.5. PR-AUC rather than ROC-AUC because the question is what an alert is worth, not how well the statistic ranks overall.
+Scored as binary classifiers against realised degradation. **A detector that fires at random scores PR-AUC = the base rate = 0.683**, so that is the line to beat, not 0.5. PR-AUC rather than ROC-AUC because the question is what an alert is worth, not how well the statistic ranks overall.
 
 | detector | PR-AUC | lift over base rate | Spearman vs ΔAUC | p |
 |---|---|---|---|---|
-| `cbpe_predicted_drop` | 0.975 | +0.278 | -0.829 | 1.3e-23 |
-| `psi_mean` | 0.840 | +0.143 | -0.386 | 1.9e-04 |
-| `domain_auc` | 0.835 | +0.139 | -0.334 | 1.4e-03 |
-| `psi_max` | 0.826 | +0.130 | -0.326 | 1.8e-03 |
-| `psi_max_categorical` | 0.826 | +0.130 | -0.326 | 1.8e-03 |
-| `ks_max_d` | 0.769 | +0.072 | -0.150 *(n.s.)* | 1.6e-01 |
-| `psi_max_numeric` | 0.735 | +0.039 | -0.082 *(n.s.)* | 4.4e-01 |
-| `score_psi` | 0.699 | +0.003 | -0.161 *(n.s.)* | 1.3e-01 |
-| `neglog_min_p` | 0.693 | -0.003 | -0.025 *(n.s.)* | 8.2e-01 |
+| `cbpe_predicted_drop` | 0.977 | +0.294 | -0.836 | 7.3e-60 |
+| `psi_mean` | 0.850 | +0.167 | -0.460 | 3.7e-13 |
+| `psi_max` | 0.826 | +0.142 | -0.357 | 3.8e-08 |
+| `psi_max_categorical` | 0.826 | +0.142 | -0.357 | 3.8e-08 |
+| `domain_auc` | 0.818 | +0.134 | -0.346 | 1.1e-07 |
+| `ks_max_d` | 0.745 | +0.062 | -0.120 *(n.s.)* | 7.4e-02 |
+| `psi_max_numeric` | 0.717 | +0.034 | -0.077 *(n.s.)* | 2.5e-01 |
+| `neglog_min_p` | 0.690 | +0.006 | -0.142 | 3.4e-02 |
+| `score_psi` | 0.673 | -0.010 | -0.126 *(n.s.)* | 5.9e-02 |
 
 Only `cbpe_predicted_drop` clears the base rate by a wide margin. Several marginal detectors show no statistically significant rank correlation with realised degradation at all — marked *(n.s.)*. Note also that `psi_max` and `psi_max_categorical` are identical to three decimals: max-PSI is entirely determined by the high-cardinality categorical columns (OCCP, POBP), and the numeric-only variant is not significant.
 
@@ -76,9 +61,9 @@ Only `cbpe_predicted_drop` clears the base rate by a wide margin. Several margin
 
 | policy | precision | recall | alerts/window | silent failures |
 |---|---|---|---|---|
-| `v0_naive` | 70% | 100% | 100% | 0% |
-| `bh_corrected` | 70% | 100% | 100% | 0% |
-| `calibrated_psi` | 70% | 100% | 100% | 0% |
+| `v0_naive` | 69% | 100% | 100% | 0% |
+| `bh_corrected` | 69% | 100% | 99% | 0% |
+| `calibrated_psi` | 69% | 100% | 99% | 0% |
 
 ## What this project does not claim
 

@@ -1,8 +1,8 @@
 {
-  "alarm_no_harm": 6,
-  "caught": 25,
-  "silent_failure": 37,
-  "quiet_ok": 21,
-  "threshold": 6.0,
-  "n": 89
+  "alarm_no_harm": 68,
+  "caught": 153,
+  "silent_failure": 0,
+  "quiet_ok": 3,
+  "threshold": 0.2,
+  "n": 224
 }

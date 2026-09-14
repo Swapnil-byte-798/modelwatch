@@ -79,8 +79,10 @@ def generate() -> str:
     A(f"- **{base_pct:.1f}% materially degraded** (95% CI "
       f"{ci[0]*100:.1f}–{ci[1]*100:.1f}%) — the base rate everything divides by")
     A(f"- **{naive['precision']*100:.0f}% alert precision** for the standard "
-      f"PSI > {C.FOLKLORE_PSI_THRESHOLD} / p < {C.FOLKLORE_ALPHA} monitor "
-      f"(fires on {naive['alert_rate']*100:.0f}% of windows)")
+      f"PSI > {C.FOLKLORE_PSI_THRESHOLD} / p < {C.FOLKLORE_ALPHA} monitor — "
+      f"which is just the base rate restated, because it fires on "
+      f"{naive['alert_rate']*100:.1f}% of windows "
+      f"({naive['tn']} true negatives out of {bench['n_windows']})")
     if aa:
         A(f"- **{fa:.1f}% false-alarm rate** on A/A splits where no drift exists "
           f"by construction")
@@ -136,17 +138,30 @@ def generate() -> str:
               "have resolved. See `DEAD_ENDS.md`.")
             A("")
         A(f"**2. Drift is ubiquitous; harm is not.** This is the failure that "
-          f"survives. Real drift sits far above the null: the *smallest* max-PSI "
-          f"across {dm['n']} windows is **{dm['real_min']:.2f}** against a "
-          f"no-drift 99th percentile of **{dm['null_q99']:.3f}** — "
-          f"**{dm['below_null_q99']} of {dm['n']}** windows fall below it. Every "
-          f"threshold that admits one real window admits all of them.")
+          f"survives. Real drift sits far above the null — median max-PSI "
+          f"**{dm['real_median']:.2f}** against a no-drift 99th percentile of "
+          f"**{dm['null_q99']:.3f}**, and only **{dm['below_null_q99']} of "
+          f"{dm['n']}** windows fall below that percentile. So a threshold "
+          f"strict enough to suppress the no-drift null still admits almost "
+          f"every real window.")
         A("")
         A(f"And the separation the monitor would need simply is not there: "
           f"max-PSI is **{dm['harmful_median']:.2f}** on windows where the model "
           f"materially degraded and **{dm['benign_median']:.2f}** where it did "
           f"not. A detector that measures how much the inputs moved is answering "
           f"a different question from the one the pager is asking.")
+        A("")
+    bsk = bench.get("by_shift_kind", {})
+    if "temporal" in bsk and "spatial" in bsk:
+        t, sp = bsk["temporal"], bsk["spatial"]
+        A("**3. The degradation is spatial, not temporal.** Windows that hold the "
+          f"state fixed and move only through time ({t['n']} of them, California "
+          f"2015-2018) show **{t['harmful_rate']*100:.0f}%** material "
+          f"degradation — realised ΔAUC between +0.003 and −0.003. Windows that "
+          f"change state degrade at **{sp['harmful_rate']*100:.0f}%**. For this "
+          "model and this task, \"harm\" is distance from California, not "
+          "elapsed time. A monitor tuned on calendar drift would have found "
+          "nothing to alarm about in four years of data.")
         A("")
     A("## Detector leaderboard")
     A("")
